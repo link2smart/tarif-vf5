@@ -615,7 +615,14 @@
                         // User valid but device invalid
                         setLoginError("Cet appareil n'est pas autorisé.");
                     }
-                } else { setLoginError('Identifiants incorrects'); }
+                } else { 
+                    // Aide au diagnostic pour l'utilisateur
+                    if (users.length === 2 && users[0].id === 'admin') {
+                        setLoginError('Identifiants incorrects. (Mode Local : essayez admin/admin)');
+                    } else {
+                        setLoginError('Identifiants incorrects'); 
+                    }
+                }
             };
             
             // ... (Rest of logic: handleLogout, openFile, openCalculator, PDF logic, Admin logic same as before) ...
@@ -660,6 +667,7 @@
                             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all transform active:scale-95 mt-2">Se Connecter</button>
                         </form>
                         <div className="mt-6 pt-4 border-t border-slate-200 text-center"><button type="button" onClick={() => loadCloudDatabase(false)} className="text-xs font-bold text-slate-400 hover:text-blue-600 flex items-center justify-center gap-2 w-full transition-colors"><Icon name="RefreshCw" size={12}/> Mettre à jour les accès (Cloud)</button></div>
+                        <div className="text-[10px] text-center text-slate-400 mt-2">Source: {tarifs.length > 0 ? "Cloud ☁️" : "Défaut (Local) 💻"}</div>
                         {!HARDCODED_DBX_TOKEN && <p className="text-xs text-center text-red-400 mt-4">⚠️ Token Dropbox manquant.</p>}
                     </div>
                 </div>
@@ -820,8 +828,31 @@
                                 <div className="animate-fade">
                                     {dbMeta && <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-2 mb-6 flex justify-between items-center text-xs text-blue-800 animate-fade"><div className="flex gap-4"><span className="font-bold flex items-center gap-1"><Icon name="Clock" size={12}/> MAJ: {dbMeta.date}</span><span className="hidden md:inline">|</span><span className="flex items-center gap-1"><Icon name="User" size={12}/> {dbMeta.user}</span></div><div className="italic opacity-75 hidden md:block">Données synchronisées automatiquement</div></div>}
                                     {dbHistory.length > 0 && <div className="bg-slate-900 text-white py-2 px-4 rounded-lg mb-6 shadow-md border border-slate-700 overflow-hidden relative"><div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-slate-900 to-transparent w-10 z-10"></div><div className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-slate-900 to-transparent w-10 z-10"></div><div className="marquee-container"><div className="marquee-content flex gap-8">{dbHistory.map((h, i) => (<span key={i} className="inline-flex items-center gap-2 text-xs font-mono"><span className="text-blue-400">[{h.date}]</span><span className="font-bold text-yellow-400">{h.user}</span>:<span>{h.action}</span><span className="text-slate-600 mx-2">|</span></span>))}</div></div></div>}
+                                    
+                                    {/* NOUVEAU BLOC : DERNIERES MISE A JOUR & RAPPORTS */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm"><h3 className="text-xs font-bold uppercase text-slate-400 mb-4 flex items-center gap-2"><Icon name="BarChart2" size={14}/> Top Recherches (Local)</h3><div className="space-y-3">{users.sort((a,b) => b.searchCount - a.searchCount).slice(0, 3).map((u, i) => (<div key={i} className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-600">{u.name.charAt(0)}</div><div className="flex-1"><div className="flex justify-between text-xs mb-1"><span className="font-bold text-slate-700">{u.name}</span><span className="text-slate-400">{u.searchCount} rech.</span></div><div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full bar-fill" style={{width: `${Math.min((u.searchCount / (Math.max(...users.map(u=>u.searchCount)) || 1)) * 100, 100)}%`}}></div></div></div></div>))}</div></div>
+                                        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                                            <h3 className="text-xs font-bold uppercase text-slate-400 mb-4 flex items-center gap-2"><Icon name="BellRing" size={14}/> Dernières Mises à Jour & Rapports</h3>
+                                            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                                {tarifs
+                                                    .filter(t => t.report && (t.report.changed?.length > 0 || t.report.added?.length > 0 || t.report.removed?.length > 0))
+                                                    .sort((a, b) => new Date(b.index_date || 0) - new Date(a.index_date || 0))
+                                                    .slice(0, 5) // Show top 5 recent reports
+                                                    .map((t, i) => (
+                                                    <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center font-bold text-orange-600 shrink-0"><Icon name="TrendingUp" size={18}/></div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-bold text-slate-700 text-sm truncate">MAJ sur le tarif {t.name}</div>
+                                                            <div className="text-xs text-slate-400">{t.index_date}</div>
+                                                        </div>
+                                                        <button onClick={() => setViewingReport(t.report)} className="px-3 py-1.5 bg-white text-blue-600 text-xs font-bold rounded-lg border border-slate-200 hover:bg-blue-50 transition-colors shrink-0">Consulter les nouveautés</button>
+                                                    </div>
+                                                ))}
+                                                {tarifs.filter(t => t.report && (t.report.changed?.length > 0 || t.report.added?.length > 0 || t.report.removed?.length > 0)).length === 0 && (
+                                                    <div className="text-center text-slate-400 py-4 text-xs italic">Aucune modification récente détectée.</div>
+                                                )}
+                                            </div>
+                                        </div>
                                         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm"><h3 className="text-xs font-bold uppercase text-slate-400 mb-4 flex items-center gap-2"><Icon name="PieChart" size={14}/> Base de Données</h3><div className="flex gap-4 items-center h-full pb-4"><div className="flex-1 text-center p-4 bg-green-50 rounded-xl"><div className="text-2xl font-black text-green-600">{tarifs.length}</div><div className="text-xs font-bold text-green-800 uppercase">Tarifs</div></div><div className="flex-1 text-center p-4 bg-indigo-50 rounded-xl"><div className="text-2xl font-black text-indigo-600">{fiches.length}</div><div className="text-xs font-bold text-indigo-800 uppercase">Fiches</div></div><div className="flex-1 text-center p-4 bg-blue-50 rounded-xl"><div className="text-2xl font-black text-blue-600">{tarifs.reduce((acc,t)=>acc+(t.products?.length||0),0)}</div><div className="text-xs font-bold text-blue-800 uppercase">Produits</div></div></div></div>
                                     </div>
                                     <div className="max-w-3xl mx-auto text-center mb-10"><div className="relative group z-10"><input className="w-full p-5 pl-14 rounded-2xl border border-slate-200 shadow-xl shadow-slate-100 focus:ring-4 focus:ring-blue-50 outline-none text-lg font-medium transition-all" placeholder="Rechercher un produit ou une fiche..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus /><div className="absolute left-5 top-5 text-slate-300 group-focus-within:text-blue-500 transition-colors"><Icon name="Search" size={24} /></div></div><div className="mt-4 flex justify-center"><button onClick={() => uploadInputRef.current.click()} disabled={isUploading} className="text-xs font-bold text-slate-400 hover:text-blue-600 flex items-center gap-2 transition-colors bg-slate-50 hover:bg-blue-50 px-3 py-1.5 rounded-full"><Icon name={isUploading ? "Loader2" : "UploadCloud"} size={14} className={isUploading ? "animate-spin" : ""}/>{isUploading ? "Envoi..." : "Ajouter Fiche PDF"}</button><input type="file" ref={uploadInputRef} onChange={handleUploadFiche} accept="application/pdf" className="hidden" /></div></div>
@@ -839,15 +870,23 @@
                                                         const t4Rate = res.t4_percentage || 0;
                                                         const basePriceForT4 = isTaxable ? (validPrice ? priceVal * 1.20 : 0) : priceVal;
                                                         const priceT4 = validPrice ? (basePriceForT4 * (1 - t4Rate/100)).toFixed(2) : null;
-                                                        const pricesObj = { ht: validPrice ? priceHT : null, ttc: isTaxable ? priceTTC : null, t4: (t4Rate > 0 && validPrice) ? priceT4 : null };
                                                         
+                                                        // Prices Object passed to calculator
+                                                        const pricesObj = {
+                                                            ht: validPrice ? priceHT : null,
+                                                            ttc: isTaxable ? priceTTC : null,
+                                                            t4: (t4Rate > 0 && validPrice) ? priceT4 : null
+                                                        };
+
                                                         return (
                                                             <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 hover:border-blue-300 hover:shadow-lg transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 group">
                                                                 <div className="flex items-start gap-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-blue-50 text-blue-600"><Icon name="Tag" size={20}/></div><div><div className="font-bold text-slate-800 text-lg">{res.name}{res.packaging && <span className="ml-2 text-sm font-normal text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">en {res.packaging}</span>}</div><div className="flex flex-wrap items-center gap-2 mt-2"><span className="bg-slate-100 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 flex items-center gap-1"><Icon name="Folder" size={12}/> {res.source}</span><span className="px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 bg-green-50 text-green-600 border border-green-100"><Icon name="Calendar" size={12}/> {res.date_tarif}</span>{t4Rate > 0 && <span className="px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 bg-orange-50 text-orange-600 border border-orange-100"><Icon name="Percent" size={12}/> T4: -{t4Rate}%</span>}</div></div></div>
                                                                 <div className="flex items-center justify-between md:justify-end gap-3 pl-14 md:pl-0">
-                                                                    <div className="text-right mr-4">{validPrice && isTaxable ? (<div className="flex flex-col items-end"><div className="text-sm font-bold text-slate-400">{priceHT} <span className="text-[10px]">HT</span></div><div className="text-xl font-bold text-slate-700 whitespace-nowrap">{priceTTC} <span className="text-xs text-slate-400 font-bold">TTC</span></div>{t4Rate > 0 && <div className="text-2xl font-black text-orange-500 whitespace-nowrap">{priceT4} <span className="text-xs text-orange-300 font-bold">T4</span></div>}</div>) : (<div className="flex flex-col items-end"><div className="text-xl font-bold text-green-600 whitespace-nowrap">{priceHT} <span className="text-xs text-green-800 font-bold">{validPrice ? 'EXO' : (res.unit || 'DH')}</span></div>{t4Rate > 0 && validPrice && <div className="text-2xl font-black text-orange-500 whitespace-nowrap">{priceT4} <span className="text-xs text-orange-300 font-bold">T4</span></div>}</div>)}{validPrice && <div className="text-xs text-slate-400 font-bold mt-1 text-right">{res.unit || 'DH'}</div>}</div>
+                                                                    <div className="text-right mr-4">
+                                                                        {validPrice && isTaxable ? (<div className="flex flex-col items-end"><div className="text-sm font-bold text-slate-400">{priceHT} <span className="text-[10px]">HT</span></div><div className="text-xl font-bold text-slate-700 whitespace-nowrap">{priceTTC} <span className="text-xs text-slate-400 font-bold">TTC</span></div>{t4Rate > 0 && <div className="text-2xl font-black text-orange-500 whitespace-nowrap">{priceT4} <span className="text-xs text-orange-300 font-bold">T4</span></div>}</div>) : (<div className="flex flex-col items-end"><div className="text-xl font-bold text-green-600 whitespace-nowrap">{priceHT} <span className="text-xs text-green-800 font-bold">{validPrice ? 'EXO' : (res.unit || 'DH')}</span></div>{t4Rate > 0 && validPrice && <div className="text-2xl font-black text-orange-500 whitespace-nowrap">{priceT4} <span className="text-xs text-orange-300 font-bold">T4</span></div>}</div>)}{validPrice && <div className="text-xs text-slate-400 font-bold mt-1 text-right">{res.unit || 'DH'}</div>}</div>
                                                                     <div className="flex gap-2">
                                                                         {validPrice && <button onClick={() => openCalculator(res, pricesObj)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm" title="Calculatrice"><Icon name="Calculator" size={16}/></button>}
+                                                                        {/* AJOUT BOUTON RAPPORT DANS LA CARTE PRODUIT */}
                                                                         {res.report && <button onClick={() => setViewingReport(res.report)} className="bg-orange-50 hover:bg-orange-100 text-orange-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm border border-orange-200" title="Consulter Différence Tarifs"><Icon name="TrendingUp" size={16}/></button>}
                                                                         <button onClick={() => openFile(res.path, res.source)} className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"><Icon name="Eye" size={14}/> Voir</button>
                                                                     </div>
